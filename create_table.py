@@ -21,3 +21,11 @@ CREATE TABLE IF NOT EXISTS users (
     user_name TEXT NOT NULL CHECK(length(user_name) > 0)
 );
 ''')
+
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS authorization (
+    user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nickname TEXT NOT NULL UNIQUE,
+    hash_pass NOT NULL
+);
+''')
