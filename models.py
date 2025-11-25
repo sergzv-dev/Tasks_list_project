@@ -27,3 +27,7 @@ class UserTaskModel(BaseModel):
 class ChangeTaskModel(BaseModel):
     task_id: int
     new_task: str
+
+class AuthorizUser(BaseModel):
+    nickname: str
+    password: str

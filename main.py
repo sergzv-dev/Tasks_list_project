@@ -1,17 +1,23 @@
 from fastapi import FastAPI
-from repository import UserRepository, TaskRepository
-from models import AddUserModel, AddTaskModel, ChangeTaskModel
+from repository import UserRepository, TaskRepository, AuthorizRepository
+from models import AddUserModel, AddTaskModel, ChangeTaskModel, AuthorizUser
 
 app = FastAPI()
 
+authoriz_repo = AuthorizRepository('test.db')
 task_repo = TaskRepository('test.db')
 user_repo = UserRepository('test.db')
 
 
+@app.post('/signup')
+def signup(new_user: AuthorizUser):
+    authoriz_repo.add(new_user)
+    return {'message': 'successful authorization'}
+
 @app.post('/users/new_user')
 def add_user(user: AddUserModel) -> dict:
     user_repo.add(user)
-    return {'message': f'user added'}
+    return {'message': 'user added'}
 
 @app.get('/users/all_users')
 def all_users():
@@ -20,7 +26,7 @@ def all_users():
 @app.post('/users/{user_id}/dell_user')
 def dell_user(user_id: int) -> dict:
     user_repo.dell_user(user_id)
-    return {'message': f'user deleted'}
+    return {'message': 'user deleted'}
 
 @app.post('/tasks/new_task')
 def add_task(new_task: AddTaskModel) -> dict:
@@ -30,7 +36,7 @@ def add_task(new_task: AddTaskModel) -> dict:
 @app.post('/tasks/{task_id}/finish_task')
 def finish_task(task_id: int) -> dict:
     task_repo.finish_task(task_id)
-    return {'message': f'task complete'}
+    return {'message': 'task complete'}
 
 @app.get("/tasks/all_tasks")
 def all_tasks():
@@ -51,9 +57,9 @@ def user_tasks(user_id: int):
 @app.post('/tasks/change_task')
 def change_task(new_task: ChangeTaskModel) -> dict:
     task_repo.change_task(new_task)
-    return {'message': f'task changed'}
+    return {'message': 'task changed'}
 
 @app.post('/tasks/{task_id}/dell_task')
 def dell_task(task_id: int) -> dict:
     task_repo.dell_task(task_id)
-    return {'message': f'task deleted'}
+    return {'message': 'task deleted'}

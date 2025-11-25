@@ -1,16 +1,28 @@
 import sqlite3
-from models import AddUserModel, UserModel, AddTaskModel, TaskModel, UserTaskModel, ChangeTaskModel
+from models import AddUserModel, UserModel, AddTaskModel, TaskModel, UserTaskModel, ChangeTaskModel, AuthorizUser
+from pass_hash_convert import hash_password
 
 class Repository:
     def __init__(self, db_path = 'test.db'):
         self.db_path = db_path
 
 
+class AuthorizRepository(Repository):
+    def add(self, new_user: AuthorizUser):
+        hash_pass = hash_password(new_user.password)
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('INSERT INTO authorization (nickname, hash_pass) VALUES (:nickname, :hash_pass)',
+                           {'nickname': new_user.nickname, 'hash_pass': hash_pass})
+            conn.commit()
+
+
 class UserRepository(Repository):
     def add(self, user: AddUserModel):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('INSERT INTO users (user_name) VALUES (:user_name)', {"user_name": user.user_name})
+            cursor.execute('INSERT INTO users (user_name) VALUES (:user_name)',
+                           {"user_name": user.user_name})
             conn.commit()
 
     def all_users(self):
@@ -30,15 +42,17 @@ class UserRepository(Repository):
 class TaskRepository(Repository):
     def add(self, n_task: AddTaskModel):
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("PRAGMA foreign_keys = ON")
+            conn.execute('PRAGMA foreign_keys = ON')
             cursor = conn.cursor()
-            cursor.execute('INSERT INTO tasks (task, user_id) VALUES (:task, :user_id)', {"task": n_task.task, "user_id": n_task.user_id})
+            cursor.execute('INSERT INTO tasks (task, user_id) VALUES (:task, :user_id)',
+                           {'task': n_task.task, 'user_id': n_task.user_id})
             conn.commit()
 
     def finish_task(self, task_id: int):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('UPDATE tasks SET done = :done WHERE task_id = :task_id', {'done': True, "task_id": task_id})
+            cursor.execute('UPDATE tasks SET done = :done WHERE task_id = :task_id',
+                           {'done': True, "task_id": task_id})
             conn.commit()
 
     def all_tasks(self):
@@ -74,7 +88,8 @@ class TaskRepository(Repository):
     def change_task(self, new_task: ChangeTaskModel):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('UPDATE tasks SET task = :new_task WHERE task_id = :task_id', {'task_id': new_task.task_id, 'new_task': new_task.new_task})
+            cursor.execute('UPDATE tasks SET task = :new_task WHERE task_id = :task_id',
+                           {'task_id': new_task.task_id, 'new_task': new_task.new_task})
             conn.commit()
 
     def dell_task(self, task_id: int):
