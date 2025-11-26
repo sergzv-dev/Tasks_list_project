@@ -1,6 +1,8 @@
 import sqlite3
+from http.client import HTTPException
 from models import AddUserModel, UserModel, AddTaskModel, TaskModel, UserTaskModel, ChangeTaskModel, AuthorizUser
-from pass_hash_convert import hash_password
+from pass_hash_manager import hash_password, verify_password
+from token_manager import create_token
 
 class Repository:
     def __init__(self, db_path = 'test.db'):
@@ -16,6 +18,16 @@ class AuthorizRepository(Repository):
                            {'nickname': new_user.nickname, 'hash_pass': hash_pass})
             conn.commit()
 
+    def token(self, user: AuthorizUser):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT hash_pass FROM authorization WHERE nickname = :nickname', {'nickname': user.nickname})
+            row = cursor.fetchone()
+        stored_hash = row[0] if row else 42
+        if not verify_password(user.password, stored_hash):
+            raise HTTPException(401, 'wrong login or password')
+        token = create_token(user.nickname)
+        return {'access token': token}
 
 class UserRepository(Repository):
     def add(self, user: AddUserModel):

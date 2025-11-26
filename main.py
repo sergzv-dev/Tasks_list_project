@@ -14,6 +14,10 @@ def signup(new_user: AuthorizUser):
     authoriz_repo.add(new_user)
     return {'message': 'successful authorization'}
 
+@app.post('/signin')
+def signin(user: AuthorizUser):
+    return authoriz_repo.token(user)
+
 @app.post('/users/new_user')
 def add_user(user: AddUserModel) -> dict:
     user_repo.add(user)
