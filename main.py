@@ -1,12 +1,20 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, Body
 from repository import UserRepository, TaskRepository, AuthorizRepository
 from models import AddUserModel, AddTaskModel, ChangeTaskModel, AuthorizUser
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from token_manager import verify_token
 
 app = FastAPI()
+auth_scheme = HTTPBearer()
 
 authoriz_repo = AuthorizRepository('test.db')
 task_repo = TaskRepository('test.db')
 user_repo = UserRepository('test.db')
+
+def chek_token(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme)):
+    token = credentials.credentials
+    payload = verify_token(token)
+    return payload
 
 
 @app.post('/signup')
@@ -19,12 +27,12 @@ def signin(user: AuthorizUser):
     return authoriz_repo.token(user)
 
 @app.post('/users/new_user')
-def add_user(user: AddUserModel) -> dict:
+def add_user(user: AddUserModel = Body, _: dict = Depends(chek_token)) -> dict:
     user_repo.add(user)
     return {'message': 'user added'}
 
 @app.get('/users/all_users')
-def all_users():
+def all_users(_: dict = Depends(chek_token)):
     return user_repo.all_users()
 
 @app.post('/users/{user_id}/dell_user')

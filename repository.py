@@ -1,5 +1,5 @@
 import sqlite3
-from http.client import HTTPException
+from fastapi import HTTPException
 from models import AddUserModel, UserModel, AddTaskModel, TaskModel, UserTaskModel, ChangeTaskModel, AuthorizUser
 from pass_hash_manager import hash_password, verify_password
 from token_manager import create_token
@@ -25,7 +25,7 @@ class AuthorizRepository(Repository):
             row = cursor.fetchone()
         stored_hash = row[0] if row else 42
         if not verify_password(user.password, stored_hash):
-            raise HTTPException(401, 'wrong login or password')
+            raise HTTPException(status_code=401, detail='wrong login or password')
         token = create_token(user.nickname)
         return {'access token': token}
 
