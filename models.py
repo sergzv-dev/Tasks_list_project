@@ -3,9 +3,8 @@ from pydantic import BaseModel
 class AddUserModel(BaseModel):
     user_name: str
 
-class UserModel(BaseModel):
+class UserModel(AddUserModel):
     user_id: int
-    user_name: str
 
 class AddTaskModel(BaseModel):
     task: str

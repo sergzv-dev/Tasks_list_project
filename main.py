@@ -36,42 +36,42 @@ def all_users(_: dict = Depends(chek_token)):
     return user_repo.all_users()
 
 @app.post('/users/{user_id}/dell_user')
-def dell_user(user_id: int) -> dict:
+def dell_user(user_id: int, _: dict = Depends(chek_token)) -> dict:
     user_repo.dell_user(user_id)
     return {'message': 'user deleted'}
 
 @app.post('/tasks/new_task')
-def add_task(new_task: AddTaskModel) -> dict:
+def add_task(new_task: AddTaskModel = Body, _: dict = Depends(chek_token)) -> dict:
     task_repo.add(new_task)
     return {'message': 'task added'}
 
 @app.post('/tasks/{task_id}/finish_task')
-def finish_task(task_id: int) -> dict:
+def finish_task(task_id: int, _: dict = Depends(chek_token)) -> dict:
     task_repo.finish_task(task_id)
     return {'message': 'task complete'}
 
-@app.get("/tasks/all_tasks")
-def all_tasks():
+@app.get('/tasks/all_tasks')
+def all_tasks(_: dict = Depends(chek_token)):
     return task_repo.all_tasks()
 
-@app.get("/tasks/done_tasks")
-def done_tasks():
+@app.get('/tasks/done_tasks')
+def done_tasks(_: dict = Depends(chek_token)):
     return task_repo.get_tasks_by_status(True)
 
-@app.get("/tasks/not_done_tasks")
-def not_done_tasks():
+@app.get('/tasks/not_done_tasks')
+def not_done_tasks(_: dict = Depends(chek_token)):
     return task_repo.get_tasks_by_status(False)
 
-@app.get("/tasks/{user_id}/user_tasks")
-def user_tasks(user_id: int):
+@app.get('/tasks/{user_id}/user_tasks')
+def user_tasks(user_id: int, _: dict = Depends(chek_token)):
     return task_repo.user_tasks(user_id)
 
 @app.post('/tasks/change_task')
-def change_task(new_task: ChangeTaskModel) -> dict:
+def change_task(new_task: ChangeTaskModel = Body, _: dict = Depends(chek_token)) -> dict:
     task_repo.change_task(new_task)
     return {'message': 'task changed'}
 
 @app.post('/tasks/{task_id}/dell_task')
-def dell_task(task_id: int) -> dict:
+def dell_task(task_id: int, _: dict = Depends(chek_token)) -> dict:
     task_repo.dell_task(task_id)
     return {'message': 'task deleted'}
