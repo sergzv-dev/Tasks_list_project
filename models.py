@@ -1,9 +1,15 @@
 from pydantic import BaseModel
 
-class AddUserModel(BaseModel):
+class AuthUser(BaseModel):
+    user_name: str
+    password: str
+
+#########
+
+class NameUserModel(BaseModel):
     user_name: str
 
-class UserModel(AddUserModel):
+class UserModel(NameUserModel):
     user_id: int
 
 class AddTaskModel(BaseModel):
@@ -30,3 +36,25 @@ class ChangeTaskModel(BaseModel):
 class AuthorizUser(BaseModel):
     nickname: str
     password: str
+
+class AuthorizUserHash(BaseModel):
+    nickname: str
+    hash_pass: str
+
+# Database models
+class DBAuthUser(BaseModel):
+    user_id: int | None = None
+    user_name: str | None = None
+    hash_pass: str | None = None
+
+
+class DBUser(BaseModel):
+    user_id: int | None = None
+    user_name: str | None = None
+
+
+class DBTask(BaseModel):
+    task_id: int | None = None
+    task: str | None = None
+    done: bool | None = None
+    user_id: int | None = None

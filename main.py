@@ -1,13 +1,14 @@
-from fastapi import FastAPI, Depends, Body
+from fastapi import FastAPI, Depends
 from repository import UserRepository, TaskRepository, AuthorizRepository
-from models import AddUserModel, AddTaskModel, ChangeTaskModel, AuthorizUser
+from models import NameUserModel, AddTaskModel, ChangeTaskModel, AuthorizUser, AuthorizUserHash
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from token_manager import verify_token
+from pass_hash_manager import hash_password, verify_password
+from token_manager import create_token
 
 app = FastAPI()
 auth_scheme = HTTPBearer()
 
-authoriz_repo = AuthorizRepository('test.db')
 task_repo = TaskRepository('test.db')
 user_repo = UserRepository('test.db')
 
@@ -19,15 +20,21 @@ def chek_token(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme))
 
 @app.post('/signup')
 def signup(new_user: AuthorizUser):
-    authoriz_repo.add(new_user)
+    hash_pass = hash_password(new_user.password)
+    authoriz_repo.add(AuthorizUserHash(nickname=new_user.name, hash_pass=hash_pass))
     return {'message': 'successful authorization'}
 
 @app.post('/signin')
 def signin(user: AuthorizUser):
-    return authoriz_repo.token(user)
+    hash_pass = hash_password(user.password)
+    bd_hash_pass = authoriz_repo.chek_pass(AuthorizUserHash(nickname=user.name, hash_pass=hash_pass))
+    if not verify_password(user.password, bd_hash_pass):
+        raise HTTPException(status_code=401, detail='wrong login or password')
+    token = create_token(user.nickname)
+    return {'access token': token}
 
 @app.post('/users/new_user')
-def add_user(user: AddUserModel = Body, _: dict = Depends(chek_token)) -> dict:
+def add_user(user: NameUserModel, _: dict = Depends(chek_token)) -> dict:
     user_repo.add(user)
     return {'message': 'user added'}
 
@@ -41,7 +48,7 @@ def dell_user(user_id: int, _: dict = Depends(chek_token)) -> dict:
     return {'message': 'user deleted'}
 
 @app.post('/tasks/new_task')
-def add_task(new_task: AddTaskModel = Body, _: dict = Depends(chek_token)) -> dict:
+def add_task(new_task: AddTaskModel, _: dict = Depends(chek_token)) -> dict:
     task_repo.add(new_task)
     return {'message': 'task added'}
 
@@ -67,7 +74,7 @@ def user_tasks(user_id: int, _: dict = Depends(chek_token)):
     return task_repo.user_tasks(user_id)
 
 @app.post('/tasks/change_task')
-def change_task(new_task: ChangeTaskModel = Body, _: dict = Depends(chek_token)) -> dict:
+def change_task(new_task: ChangeTaskModel, _: dict = Depends(chek_token)) -> dict:
     task_repo.change_task(new_task)
     return {'message': 'task changed'}
 

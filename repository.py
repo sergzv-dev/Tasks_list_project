@@ -1,111 +1,118 @@
 import sqlite3
-from fastapi import HTTPException
-from models import AddUserModel, UserModel, AddTaskModel, TaskModel, UserTaskModel, ChangeTaskModel, AuthorizUser
-from pass_hash_manager import hash_password, verify_password
-from token_manager import create_token
+from models import DBAuthUser, DBUser, DBTask
 
 class Repository:
     def __init__(self, db_path = 'test.db'):
         self.db_path = db_path
 
 
-class AuthorizRepository(Repository):
-    def add(self, new_user: AuthorizUser):
-        hash_pass = hash_password(new_user.password)
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('INSERT INTO authorization (nickname, hash_pass) VALUES (:nickname, :hash_pass)',
-                           {'nickname': new_user.nickname, 'hash_pass': hash_pass})
-            conn.commit()
-
-    def token(self, user: AuthorizUser):
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT hash_pass FROM authorization WHERE nickname = :nickname', {'nickname': user.nickname})
-            row = cursor.fetchone()
-        stored_hash = row[0] if row else 42
-        if not verify_password(user.password, stored_hash):
-            raise HTTPException(status_code=401, detail='wrong login or password')
-        token = create_token(user.nickname)
-        return {'access token': token}
-
 class UserRepository(Repository):
-    def add(self, user: AddUserModel):
+    def add(self, user: DBAuthUser):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('INSERT INTO users (user_name) VALUES (:user_name)',
-                           {"user_name": user.user_name})
+            cursor.execute('INSERT INTO users (user_name, hash_pass) VALUES (:user_name, :hash_pass)',
+                           {'user_name': user.user_name, 'hash_pass': user.hash_pass})
             conn.commit()
 
-    def all_users(self):
+    def user_hash(self, user: DBAuthUser):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT * FROM users')
-            db_users = cursor.fetchall()
-            return [UserModel(user_id=user[0], user_name=user[1]) for user in db_users]
-
-    def dell_user(self, user_id: int):
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('DELETE FROM users WHERE user_id = :user_id', {'user_id': user_id})
-            conn.commit()
+            cursor.execute('''SELECT user_id, user_name, hash_pass FROM users
+                                WHERE user_name = :user_name AND hash_pass = :hash_pass''',
+                           {'user_name': user.user_name, 'hash_pass': user.hash_pass})
+            row = cursor.fetchone()
+        return DBAuthUser(user_id = row[0], user_name = row[1], hash_pass =  row[2]) if row else None
 
 
 class TaskRepository(Repository):
-    def add(self, n_task: AddTaskModel):
+    def add(self, task: DBTask):
         with sqlite3.connect(self.db_path) as conn:
             conn.execute('PRAGMA foreign_keys = ON')
             cursor = conn.cursor()
             cursor.execute('INSERT INTO tasks (task, user_id) VALUES (:task, :user_id)',
-                           {'task': n_task.task, 'user_id': n_task.user_id})
+                           {'task': task.task, 'user_id': task.user_id})
             conn.commit()
 
-    def finish_task(self, task_id: int):
+    def all_user_tasks(self, task: DBTask):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('UPDATE tasks SET done = :done WHERE task_id = :task_id',
-                           {'done': True, "task_id": task_id})
+            cursor.execute('SELECT task_id, task, done FROM tasks WHERE user_id = :user_id',
+                           {'user_id': task.user_id})
+            task_list = cursor.fetchall()
+            return [DBTask(task_id=t[0], task=t[1], done=t[2]) for t in task_list]
+
+    def finish_task(self, task: DBTask):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('UPDATE tasks SET done = :done WHERE task_id = :task_id AND user_id = :user_id',
+                           {'done': True, "task_id": task.task_id, 'user_id': task.user_id})
             conn.commit()
 
-    def all_tasks(self):
+    def get_tasks_by_status(self, task: DBTask):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('''SELECT t.task_id, t.task, t.done, u.user_id, u.user_name
+            cursor.execute('SELECT task_id, task, done FROM tasks WHERE done = :done AND user_id = :user_id',
+                           {'done': task.done, 'user_id': task.user_id})
+            task_list = cursor.fetchall()
+            return [DBTask(task_id=t[0], task=t[1], done=t[2]) for t in task_list]
+
+    def change_task(self, task: DBTask):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('UPDATE tasks SET task = :new_task WHERE task_id = :task_id AND user_id = :user_id',
+                           {'new_task': task.new_task, 'task_id': task.task_id, 'user_id': task.user_id})
+            conn.commit()
+
+    def dell_task(self, task: DBTask):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM tasks WHERE task_id = :task_id AND user_id = :user_id',
+                           {'task_id': task.task_id, 'user_id': task.user_id})
+            conn.commit()
+
+
+class AdminRepository(Repository):
+    def admin_add(self, admin: DBAuthUser):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('INSERT INTO admins (admin_name, hash_pass) VALUES (:admin_name, :hash_pass)',
+                           {'admin_name': 'admin.' + admin.user_name, 'hash_pass': admin.hash_pass})
+
+    def admin_hash(self, admin: DBAuthUser):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''SELECT admin_id, admin_name, hash_pass FROM admins
+                                WHERE admin_name = :admin_name AND hash_pass = :hash_pass''',
+                           {'admin_name': admin.user_name, 'hash_pass': admin.hash_pass})
+            row = cursor.fetchone()
+        return DBAuthUser(user_id = row[0], user_name = row[1], hash_pass =  row[2]) if row else None
+
+    def admin_all_users(self):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT user_id, user_name FROM users')
+            rows = cursor.fetchall()
+            return [DBUser(user_id=user[0], user_name=user[1]) for user in rows]
+
+    def admin_all_tasks(self):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT task_id, task, done, user_id FROM tasks ORDER BY user_id, task_id')
+            rows = cursor.fetchall()
+            return [DBTask(task_id = row[0], task = row[1], done = row[2], user_id = row[3]) for row in rows]
+
+    def admin_users_tasks(self):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''SELECT t.task_id, t.task, t.done, t.user_id, u.user_id, u.user_name
                             FROM tasks AS t
                             INNER JOIN users AS u ON t.user_id = u.user_id''')
-            task_list = cursor.fetchall()
-            return [TaskModel(task_id = t[0], task = t[1], done = t[2], user_id = t[3]) for t in task_list]
+            rows = cursor.fetchall()
+            return [{'Task': DBTask(task_id = row[0], task = row[1], done = row[2], user_id = row[3]),
+                     'User': DBUser(user_id = row[4], user_name = row[5])} for row in rows]
 
-    def get_tasks_by_status(self, status: bool):
+    def admin_dell_user(self, user_id: int):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('''SELECT t.task_id, t.task, t.done, u.user_id, u.user_name
-                            FROM tasks AS t
-                            INNER JOIN users AS u ON t.user_id = u.user_id
-                            WHERE t.done = :status''', {'status': status})
-            task_list = cursor.fetchall()
-            return [TaskModel(task_id=t[0], task=t[1], done=t[2], user_id=t[3]) for t in task_list]
-
-
-    def user_tasks(self, user_id: int):
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''SELECT t.task_id, t.task, t.done, u.user_id, u.user_name
-                            FROM tasks AS t
-                            INNER JOIN users AS u ON t.user_id = u.user_id
-                            WHERE u.user_id = :user_id''', {'user_id': user_id })
-            db_us_ts = cursor.fetchall()
-            return [UserTaskModel(task_id=ut[0], task=ut[1], done=ut[2], user_id=ut[3], user_name=ut[4]) for ut in db_us_ts]
-
-    def change_task(self, new_task: ChangeTaskModel):
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('UPDATE tasks SET task = :new_task WHERE task_id = :task_id',
-                           {'task_id': new_task.task_id, 'new_task': new_task.new_task})
-            conn.commit()
-
-    def dell_task(self, task_id: int):
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('DELETE FROM tasks WHERE task_id = :task_id', {'task_id': task_id})
+            cursor.execute('DELETE FROM users WHERE user_id = :user_id', {'user_id': user_id})
             conn.commit()

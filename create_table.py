@@ -18,14 +18,15 @@ CREATE TABLE IF NOT EXISTS tasks (
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS users (
     user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_name TEXT NOT NULL CHECK(length(user_name) > 0)
+    user_name TEXT NOT NULL CHECK(length(user_name) > 0),
+    hash_pass NOT NULL
 );
 ''')
 
 cursor.execute('''
-CREATE TABLE IF NOT EXISTS authorization (
-    user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nickname TEXT NOT NULL UNIQUE,
-    hash_pass NOT NULL
+CREATE TABLE IF NOT EXISTS admins (
+    admin_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    admin_name TEXT NOT NULL CHECK(length(user_name) > 0),
+    admin_pass NOT NULL
 );
 ''')
