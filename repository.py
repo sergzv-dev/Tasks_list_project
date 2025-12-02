@@ -7,7 +7,7 @@ class Repository:
 
 
 class UserRepository(Repository):
-    def add(self, user: DBAuthUser):
+    def new_user(self, user: DBAuthUser):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('INSERT INTO users (user_name, hash_pass) VALUES (:user_name, :hash_pass)',
@@ -17,11 +17,11 @@ class UserRepository(Repository):
     def user_hash(self, user: DBAuthUser):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('''SELECT user_id, user_name, hash_pass FROM users
-                                WHERE user_name = :user_name AND hash_pass = :hash_pass''',
-                           {'user_name': user.user_name, 'hash_pass': user.hash_pass})
+            cursor.execute('''SELECT user_id, role, user_name, hash_pass FROM users
+                                WHERE user_name = :user_name''',
+                           {'user_name': user.user_name})
             row = cursor.fetchone()
-        return DBAuthUser(user_id = row[0], user_name = row[1], hash_pass =  row[2]) if row else None
+        return DBAuthUser(user_id = row[0], role= row[1], user_name = row[2], hash_pass =  row[3]) if row else DBAuthUser()
 
 
 class TaskRepository(Repository):
@@ -60,7 +60,7 @@ class TaskRepository(Repository):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('UPDATE tasks SET task = :new_task WHERE task_id = :task_id AND user_id = :user_id',
-                           {'new_task': task.new_task, 'task_id': task.task_id, 'user_id': task.user_id})
+                           {'new_task': task.task, 'task_id': task.task_id, 'user_id': task.user_id})
             conn.commit()
 
     def dell_task(self, task: DBTask):
@@ -72,21 +72,6 @@ class TaskRepository(Repository):
 
 
 class AdminRepository(Repository):
-    def admin_add(self, admin: DBAuthUser):
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('INSERT INTO admins (admin_name, hash_pass) VALUES (:admin_name, :hash_pass)',
-                           {'admin_name': 'admin.' + admin.user_name, 'hash_pass': admin.hash_pass})
-
-    def admin_hash(self, admin: DBAuthUser):
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''SELECT admin_id, admin_name, hash_pass FROM admins
-                                WHERE admin_name = :admin_name AND hash_pass = :hash_pass''',
-                           {'admin_name': admin.user_name, 'hash_pass': admin.hash_pass})
-            row = cursor.fetchone()
-        return DBAuthUser(user_id = row[0], user_name = row[1], hash_pass =  row[2]) if row else None
-
     def admin_all_users(self):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
