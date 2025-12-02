@@ -72,6 +72,13 @@ class TaskRepository(Repository):
 
 
 class AdminRepository(Repository):
+    def new_admin(self, user: DBAuthUser):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('INSERT INTO users (role, user_name, hash_pass) VALUES (:role, :user_name, :hash_pass)',
+                           {'role': user.role, 'user_name': user.user_name, 'hash_pass': user.hash_pass})
+            conn.commit()
+
     def admin_all_users(self):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()

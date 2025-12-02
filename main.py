@@ -18,6 +18,12 @@ def chek_token(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme))
     verified_user = verify_token(token)
     return verified_user
 
+def admin_chek_token(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme)):
+    token = credentials.credentials
+    verified_user = verify_token(token)
+    if verified_user.role != "admin":
+        raise HTTPException(403, "Admins only")
+    return verified_user
 
 #Authorization
 @app.post('/signup')
@@ -69,16 +75,26 @@ def dell_task(task_id: int, user: dict = Depends(chek_token)) -> dict:
     return {'message': 'task deleted'}
 
 
-# #Admin endpoints
-# @app.get('/users/all_users')
-# def all_users(_: dict = Depends(chek_token)):
-#     return user_repo.all_users()
-#
-# @app.post('/users/{user_id}/dell_user')
-# def dell_user(user_id: int, _: dict = Depends(chek_token)) -> dict:
-#     user_repo.dell_user(user_id)
-#     return {'message': 'user deleted'}
-#
-# @app.get('/tasks/{user_id}/user_tasks')
-# def user_tasks(user_id: int, _: dict = Depends(chek_token)):
-#     return task_repo.user_tasks(user_id)
+#Admin endpoints
+@app.post('/admin/signup')
+def signup(new_user: AuthUser):
+    hash_pass = hash_password(new_user.password)
+    admin_repo.new_admin(DBAuthUser(role = 'admin',user_name = new_user.user_name, hash_pass = hash_pass))
+    return {'message': 'successful authorization'}
+
+@app.get('/admin/all_users')
+def admin_all_users(_: dict = Depends(admin_chek_token)):
+    return admin_repo.admin_all_users()
+
+@app.get('/admin/all_tasks')
+def admin_all_tasks(_: dict = Depends(admin_chek_token)):
+    return admin_repo.admin_all_tasks()
+
+@app.get('/admin/user_tasks')
+def admin_users_tasks(_: dict = Depends(admin_chek_token)):
+    return admin_repo.admin_users_tasks()
+
+@app.post('/admin/{user_id}/dell_user')
+def admin_dell_user(user_id: int, _: dict = Depends(admin_chek_token)) -> dict:
+    admin_repo.admin_dell_user(user_id)
+    return {'message': 'user deleted'}
