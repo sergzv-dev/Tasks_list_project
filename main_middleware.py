@@ -1,34 +1,45 @@
-from fastapi import FastAPI, Depends, HTTPException, Path, APIRouter
+from fastapi import FastAPI, Depends, HTTPException, Request, Path
 from repository import UserRepository, TaskRepository, AdminRepository
 from models import AuthUser, DBAuthUser, DBTask, TokenUser, NewTaskModel, ChangeTaskModel
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from token_manager import verify_token
 from pass_hash_manager import hash_password, verify_password
 from token_manager import create_token
 
 app = FastAPI()
-auth_scheme = HTTPBearer()
+user_app = FastAPI()
+admin_app = FastAPI()
 
 admin_repo = AdminRepository('test.db')
 task_repo = TaskRepository('test.db')
 user_repo = UserRepository('test.db')
 
-
-def check_token(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme)):
-    token = credentials.credentials
+@user_app.middleware('http')
+async def user_auth_middleware(request: Request, call_next):
+    if request.url.path in ["/docs", "/redoc", "/openapi.json"]:
+        return await call_next(request)
+    auth_data = request.headers.get('Authorization')
+    if not auth_data: raise HTTPException(401, 'Invalid token')
+    token = auth_data.split()[1]
     verified_user = verify_token(token)
-    return verified_user
+    request.state.user = verified_user
+    response = await call_next(request)
+    return response
 
-def admin_check_token(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme)):
-    token = credentials.credentials
+@admin_app.middleware('http')
+async def admin_auth_middleware(request: Request, call_next):
+    if request.url.path in ["/docs", "/redoc", "/openapi.json"]:
+        return await call_next(request)
+    auth_data = request.headers.get('Authorization')
+    if not auth_data: raise HTTPException(401, 'Invalid token')
+    token = auth_data.split()[1]
     verified_user = verify_token(token)
     if verified_user.role != "admin":
         raise HTTPException(403, "Admins only")
-    return verified_user
+    response = await call_next(request)
+    return response
 
-
-admin_router = APIRouter(prefix="/admin", dependencies=[Depends(admin_check_token)])
-
+def get_user(request: Request):
+    return request.state.user
 
 #Authorization
 @app.post('/signup')
@@ -47,35 +58,35 @@ def signin(user: AuthUser):
 
 
 #User endpoints
-@app.post('/tasks/new_task')
-def add_task(task: NewTaskModel, user: dict = Depends(check_token)) -> dict:
+@user_app.post('/tasks/new_task')
+def add_task(task: NewTaskModel, user: dict = Depends(get_user)) -> dict:
     task_repo.add(DBTask(task = task.task, user_id = user.user_id))
     return {'message': 'task added'}
 
-@app.get('/tasks/all_tasks')
-def all_my_tasks(user: dict = Depends(check_token)):
+@user_app.get('/tasks/all_tasks')
+def all_my_tasks(user: dict = Depends(get_user)):
     return task_repo.all_user_tasks(DBTask(user_id = user.user_id))
 
-@app.post('/tasks/finish_task/{task_id}')
-def finish_task(task_id: int = Path(...), user: dict = Depends(check_token)) -> dict:
+@user_app.post('/tasks/finish_task/{task_id}')
+def finish_task(task_id: int = Path(...), user: dict = Depends(get_user)) -> dict:
     task_repo.finish_task(DBTask(task_id = task_id, user_id = user.user_id))
     return {'message': 'task complete'}
 
-@app.get('/tasks/done_tasks')
-def done_tasks(user: dict = Depends(check_token)):
+@user_app.get('/tasks/done_tasks')
+def done_tasks(user: dict = Depends(get_user)):
     return task_repo.get_tasks_by_status(DBTask(done = True, user_id = user.user_id))
 
-@app.get('/tasks/not_done_tasks')
-def not_done_tasks(user: dict = Depends(check_token)):
+@user_app.get('/tasks/not_done_tasks')
+def not_done_tasks(user: dict = Depends(get_user)):
     return task_repo.get_tasks_by_status(DBTask(done = False, user_id = user.user_id))
 
-@app.post('/tasks/change_task')
-def change_task(task: ChangeTaskModel, user: dict = Depends(check_token)) -> dict:
+@user_app.post('/tasks/change_task')
+def change_task(task: ChangeTaskModel, user: dict = Depends(get_user)) -> dict:
     task_repo.change_task(DBTask(task_id = task.task_id, task = task.task, user_id = user.user_id))
     return {'message': 'task changed'}
 
-@app.post('/tasks/dell_task/{task_id}')
-def dell_task(task_id: int = Path(...), user: dict = Depends(check_token)) -> dict:
+@user_app.post('/tasks/dell_task/{task_id}')
+def dell_task(task_id: int = Path(...), user: dict = Depends(get_user)) -> dict:
     task_repo.dell_task(DBTask(task_id = task_id, user_id = user.user_id))
     return {'message': 'task deleted'}
 
@@ -87,21 +98,19 @@ def signup(new_user: AuthUser):
     admin_repo.new_admin(DBAuthUser(role = 'admin',user_name = new_user.user_name, hash_pass = hash_pass))
     return {'message': 'successful authorization'}
 
-@admin_router.get('/all_users')
+@admin_app.get('/admin/all_users')
 def admin_all_users():
     return admin_repo.admin_all_users()
 
-@admin_router.get('/all_tasks')
+@admin_app.get('/admin/all_tasks')
 def admin_all_tasks():
     return admin_repo.admin_all_tasks()
 
-@admin_router.get('/user_tasks')
+@admin_app.get('/admin/user_tasks')
 def admin_users_tasks():
     return admin_repo.admin_users_tasks()
 
-@admin_router.post('/dell_user/{user_id}')
+@admin_app.post('/admin/dell_user/{user_id}')
 def admin_dell_user(user_id: int = Path(...)) -> dict:
     admin_repo.admin_dell_user(user_id)
     return {'message': 'user deleted'}
-
-app.include_router(admin_router)

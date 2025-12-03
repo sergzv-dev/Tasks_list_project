@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Path, APIRouter
+from fastapi import FastAPI, Depends, HTTPException, Path
 from repository import UserRepository, TaskRepository, AdminRepository
 from models import AuthUser, DBAuthUser, DBTask, TokenUser, NewTaskModel, ChangeTaskModel
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -25,9 +25,6 @@ def admin_check_token(credentials: HTTPAuthorizationCredentials = Depends(auth_s
     if verified_user.role != "admin":
         raise HTTPException(403, "Admins only")
     return verified_user
-
-
-admin_router = APIRouter(prefix="/admin", dependencies=[Depends(admin_check_token)])
 
 
 #Authorization
@@ -87,21 +84,19 @@ def signup(new_user: AuthUser):
     admin_repo.new_admin(DBAuthUser(role = 'admin',user_name = new_user.user_name, hash_pass = hash_pass))
     return {'message': 'successful authorization'}
 
-@admin_router.get('/all_users')
-def admin_all_users():
+@app.get('/admin/all_users')
+def admin_all_users(_: dict = Depends(admin_check_token)):
     return admin_repo.admin_all_users()
 
-@admin_router.get('/all_tasks')
-def admin_all_tasks():
+@app.get('/admin/all_tasks')
+def admin_all_tasks(_: dict = Depends(admin_check_token)):
     return admin_repo.admin_all_tasks()
 
-@admin_router.get('/user_tasks')
-def admin_users_tasks():
+@app.get('/admin/user_tasks')
+def admin_users_tasks(_: dict = Depends(admin_check_token)):
     return admin_repo.admin_users_tasks()
 
-@admin_router.post('/dell_user/{user_id}')
-def admin_dell_user(user_id: int = Path(...)) -> dict:
+@app.post('/admin/dell_user/{user_id}')
+def admin_dell_user(user_id: int = Path(...), _: dict = Depends(admin_check_token)) -> dict:
     admin_repo.admin_dell_user(user_id)
     return {'message': 'user deleted'}
-
-app.include_router(admin_router)
