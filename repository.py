@@ -78,7 +78,7 @@ class TaskRepository(Repository):
                            ,(page.user_id, page.limit, page.offset))
             rows = cursor.fetchall()
             tasks_list = [DBTask(task_id=row[0], task=row[1], done=row[2]) for row in rows]
-            cursor.execute('SELECT COUNT(*) FROM tasks WERE WHERE user_id = ?', (page.user_id,))
+            cursor.execute('SELECT COUNT(*) FROM tasks WHERE user_id = ?', (page.user_id,))
             total = cursor.fetchone()[0]
         return DBPagination(limit = page.limit, offset = page.offset, total = total, data = tasks_list)
 
@@ -91,7 +91,7 @@ class TaskRepository(Repository):
                            ,(page.user_id, page.cur, page.limit + 1))
             rows = cursor.fetchall()
             check_tasks_list = [DBTask(task_id=row[0], task=row[1], done=row[2]) for row in rows]
-            cursor.execute('SELECT COUNT(*) FROM tasks WERE WHERE user_id = ?', (page.user_id,))
+            cursor.execute('SELECT COUNT(*) FROM tasks WHERE user_id = ?', (page.user_id,))
             total = cursor.fetchone()[0]
         return DBPagination( total = total, data = check_tasks_list)
 
