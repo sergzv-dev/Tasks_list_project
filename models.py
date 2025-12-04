@@ -34,3 +34,13 @@ class DBTask(BaseModel):
     task: str | None = None
     done: bool | None = None
     user_id: int | None = None
+
+class DBPagination(BaseModel):
+    limit: int | None = None
+    offset: int | None = None
+    total: int | None = None
+    cur: int | None = None
+    next_cur: int | None = None
+    has_more: bool | None = None
+    user_id: int | None = None
+    data: list | None = None

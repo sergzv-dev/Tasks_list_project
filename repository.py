@@ -1,5 +1,5 @@
 import sqlite3
-from models import DBAuthUser, DBUser, DBTask
+from models import DBAuthUser, DBUser, DBTask, DBPagination
 
 class Repository:
     def __init__(self, db_path = 'test.db'):
@@ -38,8 +38,8 @@ class TaskRepository(Repository):
             cursor = conn.cursor()
             cursor.execute('SELECT task_id, task, done FROM tasks WHERE user_id = :user_id',
                            {'user_id': task.user_id})
-            task_list = cursor.fetchall()
-            return [DBTask(task_id=t[0], task=t[1], done=t[2]) for t in task_list]
+            rows = cursor.fetchall()
+        return [DBTask(task_id=row[0], task=row[1], done=row[2]) for row in rows]
 
     def finish_task(self, task: DBTask):
         with sqlite3.connect(self.db_path) as conn:
@@ -53,8 +53,8 @@ class TaskRepository(Repository):
             cursor = conn.cursor()
             cursor.execute('SELECT task_id, task, done FROM tasks WHERE done = :done AND user_id = :user_id',
                            {'done': task.done, 'user_id': task.user_id})
-            task_list = cursor.fetchall()
-            return [DBTask(task_id=t[0], task=t[1], done=t[2]) for t in task_list]
+            rows = cursor.fetchall()
+        return [DBTask(task_id=row[0], task=row[1], done=row[2]) for row in rows]
 
     def change_task(self, task: DBTask):
         with sqlite3.connect(self.db_path) as conn:
@@ -70,6 +70,31 @@ class TaskRepository(Repository):
                            {'task_id': task.task_id, 'user_id': task.user_id})
             conn.commit()
 
+    def get_tasks_by_page (self, page: DBPagination):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''SELECT task_id, task, done FROM tasks
+                            WHERE user_id = ? ORDER BY task_id LIMIT ? OFFSET ?'''
+                           ,(page.user_id, page.limit, page.offset))
+            rows = cursor.fetchall()
+            tasks_list = [DBTask(task_id=row[0], task=row[1], done=row[2]) for row in rows]
+            cursor.execute('SELECT COUNT(*) FROM tasks WERE WHERE user_id = ?', (page.user_id,))
+            total = cursor.fetchone()[0]
+        return DBPagination(limit = page.limit, offset = page.offset, total = total, data = tasks_list)
+
+    def get_tasks_by_cur(self, page: DBPagination):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''SELECT task_id, task, done FROM tasks
+                            WHERE user_id = ? AND task_id > ?
+                            ORDER BY task_id LIMIT ?'''
+                           ,(page.user_id, page.cur, page.limit + 1))
+            rows = cursor.fetchall()
+            check_tasks_list = [DBTask(task_id=row[0], task=row[1], done=row[2]) for row in rows]
+            cursor.execute('SELECT COUNT(*) FROM tasks WERE WHERE user_id = ?', (page.user_id,))
+            total = cursor.fetchone()[0]
+        return DBPagination( total = total, data = check_tasks_list)
+
 
 class AdminRepository(Repository):
     def new_admin(self, user: DBAuthUser):
@@ -84,14 +109,14 @@ class AdminRepository(Repository):
             cursor = conn.cursor()
             cursor.execute('SELECT user_id, user_name FROM users')
             rows = cursor.fetchall()
-            return [DBUser(user_id=user[0], user_name=user[1]) for user in rows]
+        return [DBUser(user_id=user[0], user_name=user[1]) for user in rows]
 
     def admin_all_tasks(self):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('SELECT task_id, task, done, user_id FROM tasks ORDER BY user_id, task_id')
             rows = cursor.fetchall()
-            return [DBTask(task_id = row[0], task = row[1], done = row[2], user_id = row[3]) for row in rows]
+        return [DBTask(task_id = row[0], task = row[1], done = row[2], user_id = row[3]) for row in rows]
 
     def admin_users_tasks(self):
         with sqlite3.connect(self.db_path) as conn:
@@ -100,8 +125,8 @@ class AdminRepository(Repository):
                             FROM tasks AS t
                             INNER JOIN users AS u ON t.user_id = u.user_id''')
             rows = cursor.fetchall()
-            return [{'Task': DBTask(task_id = row[0], task = row[1], done = row[2], user_id = row[3]),
-                     'User': DBUser(user_id = row[4], user_name = row[5])} for row in rows]
+        return [{'Task': DBTask(task_id = row[0], task = row[1], done = row[2], user_id = row[3]),
+                'User': DBUser(user_id = row[4], user_name = row[5])} for row in rows]
 
     def admin_dell_user(self, user_id: int):
         with sqlite3.connect(self.db_path) as conn:
