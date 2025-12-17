@@ -5,18 +5,20 @@ import time
 
 url = 'http://37.60.242.21:58000/users'
 timeout = httpx.Timeout(10.0)
+sem = asyncio.Semaphore(50)
 
 async def fetch(client, url, *, page: int, size: int):
     params = {'page': page, 'size': size}
-    for _ in range(3):
-        r = await client.get(url, params = params)
-        status = r.status_code
-        if status == 200: return r.json()
+    async with sem:
+        for _ in range(3):
+            r = await client.get(url, params = params)
+            status = r.status_code
+            if status == 200: return r.json()
 
 
 async def main():
     async with httpx.AsyncClient(timeout=timeout) as client:
-        pool = 50
+        pool = 150
 
         for start in count(start=1, step=pool):
 
@@ -38,4 +40,5 @@ result = asyncio.run(main())
 end = time.perf_counter()
 print(result)
 print(end - start)
+
 
